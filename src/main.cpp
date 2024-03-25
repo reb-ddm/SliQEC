@@ -13,7 +13,11 @@ void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
                                          const bool addAncilla, EqType eqType,
                                          const std::string &filename,
                                          const std::string &directoryname) {
-  std::fstream log2("sliqec_benchmark_log.txt", std::ios::out | std::ios::app);
+
+  std::string rootDirectoryBenchmarks = "../../benchmarks/";
+
+  std::fstream log2(rootDirectoryBenchmarks + "sliqec_benchmark_log.txt",
+                    std::ios::out | std::ios::app);
   log2 << "starting benchmark.\nminN: " << minN << ", maxN: " << maxN
        << ", reps: " << reps << ", addAncilla: " << addAncilla
        << ", filename: " << filename << "\n";
@@ -42,21 +46,25 @@ void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
 
       std::ifstream inFile;
 
-      inFile.open(directoryname + "a/" + circuitsFilename);
+      inFile.open(rootDirectoryBenchmarks + directoryname + "a/" +
+                  circuitsFilename);
       if (!inFile) {
-        std::fstream log2("sliqec_benchmark_log.txt",
+        std::fstream log2(rootDirectoryBenchmarks + "sliqec_benchmark_log.txt",
                           std::ios::out | std::ios::app);
         log2 << "Circuit1 file doesn't exist. "
-             << directoryname + "a/" + circuitsFilename << std::endl;
+             << rootDirectoryBenchmarks + directoryname + "a/" +
+                    circuitsFilename
+             << std::endl;
         log2.close();
         return;
       }
       qasmParser(inFile, gates[0], qubits[0], nQ1);
       inFile.close();
 
-      inFile.open(directoryname + "b/" + circuitsFilename);
+      inFile.open(rootDirectoryBenchmarks + directoryname + "b/" +
+                  circuitsFilename);
       if (!inFile) {
-        std::fstream log2("sliqec_benchmark_log.txt",
+        std::fstream log2(rootDirectoryBenchmarks + "sliqec_benchmark_log.txt",
                           std::ios::out | std::ios::app);
         log2 << "Circuit2 file doesn't exist." << std::endl;
         log2.close();
@@ -81,7 +89,7 @@ void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
       elapsedTime += (tFinish.tv_usec - tStart.tv_usec) / 1000.0;
 
       runtime = elapsedTime / 1000.0;
-      std::fstream log("sliqec_benchmark_log.txt",
+      std::fstream log(rootDirectoryBenchmarks + "sliqec_benchmark_log.txt",
                        std::ios::out | std::ios::app);
       if (runtime <= 600) {
         totalTime += runtime;
@@ -92,7 +100,7 @@ void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
           << "\n";
       log.close();
     }
-    std::fstream resultsFile("sliqec_" + filename,
+    std::fstream resultsFile(rootDirectoryBenchmarks + "sliqec_" + filename,
                              std::ios::out | std::ios::app);
     resultsFile << "" << n << "," << d << "," << m << "," << reps << ","
                 << (totalTime / static_cast<double>(reps - timeouts)) << ","
@@ -109,14 +117,9 @@ void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
 
 int main(int argc, char **argv) {
 
-  std::string rootDirectoryBenchmarks = "../../mqt-qcec/test/";
-
-  std::string directory1 =
-      rootDirectoryBenchmarks + "benchmarkCircuitsConstruction";
-  std::string directory2 =
-      rootDirectoryBenchmarks + "benchmarkCircuitsConstructionNoAncilla";
-  std::string directory3 =
-      rootDirectoryBenchmarks + "benchmarkCircuitsAlternating";
+  std::string directory1 = "benchmarkCircuitsConstruction";
+  std::string directory2 = "benchmarkCircuitsConstructionNoAncilla";
+  std::string directory3 = "benchmarkCircuitsAlternating";
 
   EqType eqType;
 
