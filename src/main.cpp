@@ -1,141 +1,141 @@
 #include <boost/program_options.hpp>
-#include <sys/time.h> 
 #include <fstream>
+#include <sys/time.h>
 
 #include "eqChecker.h"
 #include "memMeasure.h"
 
-extern void qasmParser(std::ifstream &inFile, std::vector<GateType> &gates, std::vector<std::vector<int> > &qubits, int &n);
+extern void qasmParser(std::ifstream &inFile, std::vector<GateType> &gates,
+                       std::vector<std::vector<int>> &qubits, int &n);
 
-int main(int argc, char **argv)
-{
-    // Program options
-    namespace po = boost::program_options;
-    po::options_description description("Options");
-    description.add_options()
-    ("help", "produce help message.")
-    ("reorder", po::value<bool>()->default_value(true), "allow variable reordering or not.\n"
-                                                             "0: disable 1: enable") 
-    ("circuit1", po::value<std::string>()->implicit_value(""), "1st circuit for equivalence checking.")
-    ("circuit2", po::value<std::string>()->implicit_value(""), "2nd circuit for equivalence checking.")
-    ("p", po::value<bool>()->default_value(false), "conduct full or partial equivalence checking.\n"
-                                                    "0: full 1: partial")
-    ("nQd", po::value<int>()->default_value(0), "(only for --p 1) the number of data qubits.")
-    ("nQm", po::value<int>()->default_value(0), "(only for --p 1) the number of measured qubits.")
-    ;
+void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
+                                         const size_t reps,
+                                         const bool addAncilla, EqType eqType,
+                                         const std::string &filename,
+                                         const std::string &directoryname) {
+  std::fstream log2("sliqec_benchmark_log.txt", std::ios::out | std::ios::app);
+  log2 << "starting benchmark.\nminN: " << minN << ", maxN: " << maxN
+       << ", reps: " << reps << ", addAncilla: " << addAncilla
+       << ", filename: " << filename << "\n";
+  log2.close();
 
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, description), vm);
-    po::notify(vm);
-
-    if (vm.count("help") || argc == 1)
-    {
-	    std::cout << description;
-	    return 0;
-	}
-
-
-    bool isReorder = vm["reorder"].as<bool>();
-
-    // Parse QASM files
-    std::vector<std::vector<GateType>> gates(2);
-    std::vector<std::vector<std::vector<int>>> qubits(2);
-    int nQ1, nQ2, n; 
-
-    std::ifstream inFile;
-
-    inFile.open(vm["circuit1"].as<std::string>()); 
-    if (!inFile)
-    {
-        std::cerr << "Circuit1 file doesn't exist." << std::endl;
-        return 0;
+  for (int d = minN; d < maxN; d += 5) {
+    double totalTime{0};
+    std::size_t timeouts{0};
+    int n{0};
+    if (addAncilla) {
+      n = static_cast<int>(1.5 * d);
+    } else {
+      n = d;
     }
-    qasmParser(inFile, gates[0], qubits[0], nQ1);
-    inFile.close();
+    const auto m = static_cast<int>(0.5 * d);
+    for (size_t k = 0; k < reps; k++) {
 
-    inFile.open(vm["circuit2"].as<std::string>());
-    if (!inFile)
-    {
-        std::cerr << "Circuit2 file doesn't exist." << std::endl;
-        return 0;
+      // Parse QASM files
+      std::vector<std::vector<GateType>> gates(2);
+      std::vector<std::vector<std::vector<int>>> qubits(2);
+      int nQ1, nQ2;
+
+      std::string circuitsFilename = std::to_string(d) + "_" +
+                                     std::to_string(m) + "_" +
+                                     std::to_string(k) + ".qasm";
+
+      std::ifstream inFile;
+
+      inFile.open(directoryname + "a/" + circuitsFilename);
+      if (!inFile) {
+        std::fstream log2("sliqec_benchmark_log.txt",
+                          std::ios::out | std::ios::app);
+        log2 << "Circuit1 file doesn't exist. "
+             << directoryname + "a/" + circuitsFilename << std::endl;
+        log2.close();
+        return;
+      }
+      qasmParser(inFile, gates[0], qubits[0], nQ1);
+      inFile.close();
+
+      inFile.open(directoryname + "b/" + circuitsFilename);
+      if (!inFile) {
+        std::fstream log2("sliqec_benchmark_log.txt",
+                          std::ios::out | std::ios::app);
+        log2 << "Circuit2 file doesn't exist." << std::endl;
+        log2.close();
+        return;
+      }
+      qasmParser(inFile, gates[1], qubits[1], nQ2);
+      inFile.close();
+
+      struct timeval tStart, tFinish;
+      double elapsedTime;
+      double runtime;
+      size_t memPeak;
+
+      gettimeofday(&tStart, NULL);
+
+      EquivalenceChecker checker(gates, qubits, n, d, m, false, eqType);
+
+      checker.check();
+
+      gettimeofday(&tFinish, NULL);
+      elapsedTime = (tFinish.tv_sec - tStart.tv_sec) * 1000.0;
+      elapsedTime += (tFinish.tv_usec - tStart.tv_usec) / 1000.0;
+
+      runtime = elapsedTime / 1000.0;
+      std::fstream log("sliqec_benchmark_log.txt",
+                       std::ios::out | std::ios::app);
+      if (runtime <= 600) {
+        totalTime += runtime;
+      } else {
+        log << "TIMEOUT; ";
+      }
+      log << "k: " << k << ", d: " << d << ", m: " << m << ", time: " << runtime
+          << "\n";
+      log.close();
     }
-    qasmParser(inFile, gates[1], qubits[1], nQ2);
-    inFile.close();
+    std::fstream resultsFile("sliqec_" + filename,
+                             std::ios::out | std::ios::app);
+    resultsFile << "" << n << "," << d << "," << m << "," << reps << ","
+                << (totalTime / static_cast<double>(reps - timeouts)) << ","
+                << timeouts << "," << reps - timeouts << "\n";
 
-    n = std::max(nQ1, nQ2);
-
-    bool p = vm["p"].as<bool>();
-    
-    int nQd, nQm; 
-    
-    EqType eqType;
-
-    if(!p)
-    {
-        if(nQ1 != nQ2)
-        {
-            std::cerr << "The two circuits have different number of qubits." << std::endl;
-            return 0;
-        }
-
-        eqType = EqType::Feq;
-
-        nQd = -1;
-        nQm = -1;
+    if (timeouts >= reps - 3) {
+      resultsFile << "stopping because of too many timeouts\n";
+      resultsFile.close();
+      return;
     }
-    else
-    {
-        nQd = vm["nQd"].as<int>();
-        
-        if(nQd < 0)
-        {
-            std::cerr << "nQd should be a positive integer." << std::endl;
-            return 0;
-        }
-        else if(nQd > nQ1 || nQd > nQ2)
-        {
-            std::cerr << "nQd cannot be larger than #qubit in circuit1 and circuit2." << std::endl;
-            return 0;
-        }
+    resultsFile.close();
+  }
+}
 
-        nQm = vm["nQm"].as<int>();
+int main(int argc, char **argv) {
 
-        if(nQm < 0)
-        {
-            std::cerr << "nQm should be a positive integer." << std::endl;
-            return 0;
-        }
-        else if(nQm > nQ1 || nQm > nQ2)
-        {
-            std::cerr << "nQm cannot be larger than #qubit in circuit1 and circuit2." << std::endl;
-            return 0;
-        }
+  std::string rootDirectoryBenchmarks = "../../mqt-qcec/test/";
 
-        if(nQd == n) 
-            eqType = EqType::PeqS;
-        else
-            eqType = EqType::Peq;
-    }
+  std::string directory1 =
+      rootDirectoryBenchmarks + "benchmarkCircuitsConstruction";
+  std::string directory2 =
+      rootDirectoryBenchmarks + "benchmarkCircuitsConstructionNoAncilla";
+  std::string directory3 =
+      rootDirectoryBenchmarks + "benchmarkCircuitsAlternating";
 
-    struct timeval tStart, tFinish;
-    double elapsedTime;
-    double runtime;
-    size_t memPeak;
+  EqType eqType;
 
-    gettimeofday(&tStart, NULL);
+  // algorithm 2
+  int minN = 5;
+  int maxN = 31;
+  int reps = 20;
+  partialEquivalencCheckingBenchmarks(minN, maxN, reps, true, EqType::Peq,
+                                      "construction_benchmarks.txt",
+                                      directory1);
+  partialEquivalencCheckingBenchmarks(minN, maxN, reps, false, EqType::Peq,
+                                      "construction_no_ancilla.txt",
+                                      directory2);
 
-    EquivalenceChecker checker(gates, qubits, n, nQd, nQm, isReorder, eqType);
-
-    checker.check();
-
-    gettimeofday(&tFinish, NULL);
-    elapsedTime = (tFinish.tv_sec - tStart.tv_sec) * 1000.0;
-    elapsedTime += (tFinish.tv_usec - tStart.tv_usec) / 1000.0;
-
-    runtime = elapsedTime / 1000.0;
-    memPeak = getPeakRSS();
-    
-    checker.printInfo(runtime, memPeak);
-
-    return 0;
+  // algorithm 3
+  minN = 5;
+  maxN = 101;
+  reps = 20;
+  partialEquivalencCheckingBenchmarks(minN, maxN, reps, false, EqType::PeqS,
+                                      "alternating_benchmark.txt", directory3);
+  return 0;
 }
