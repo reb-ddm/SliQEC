@@ -6,13 +6,13 @@ EquivalenceChecker::EquivalenceChecker
     std::vector<std::vector<GateType>>& gates,
     std::vector<std::vector<std::vector<int>>>& qubits,
     int n,
-    int nQd, 
-    int nQm, 
+    int nQd,
+    int nQm,
     bool isReorder,
     EqType eqType
 )
 :   BDDSystem
-    ( 
+    (
         (eqType == EqType::Peq)? 2 : 1, // nCircuit
         isReorder
     )
@@ -67,7 +67,7 @@ void EquivalenceChecker::check()
         calculateMiter();
         checkFeq();
     }
-    printResult();
+    // printResult();
 }
 
 /**Function*************************************************************
@@ -215,7 +215,7 @@ void EquivalenceChecker::calculateMiter()
             cntCir0++;
         }
         // apply ratio gate(s) from gates[1]
-        while(  cntCir1 * _gates[0].size() < cntCir0 * _gates[1].size()  &&  cntCir1 < _gates[1].size()   )  
+        while(  cntCir1 * _gates[0].size() < cntCir0 * _gates[1].size()  &&  cntCir1 < _gates[1].size()   )
         {
             applyGate(0, _gates[1][cntCir1], _qubits[1][cntCir1], true);
             cntCir1++;
@@ -249,7 +249,7 @@ void EquivalenceChecker::extract(int ithCircuit){
         for(int j = 0; j < _r; j++)
         {
             for(int variable_1 = _nQd + _n; variable_1 < 2*_n; variable_1++)
-            {        
+            {
                 DdNode *temp1, *temp2;
 
                 temp1 = Cudd_Not(Cudd_bddIthVar(_ddManager, variable_1));
@@ -366,7 +366,7 @@ void EquivalenceChecker::checkFeq()
             }
         }
     }
-    
+
     _isEq = 1;
 }
 
@@ -385,10 +385,10 @@ void EquivalenceChecker::checkFeq()
 void EquivalenceChecker::checkPeq()
 {
     // _k[0] - _k[1] must be even for two matrices to be equivalent
-    if ( (_k[0]-_k[1])%2 != 0)          
+    if ( (_k[0]-_k[1])%2 != 0)
         assert(false);
         // this condition should not appear, because each gate will be applied pairwisely in (U^-1)U
-    
+
 
     int small, large, dk;
     if (_k[0] >= _k[1])
@@ -532,5 +532,5 @@ void EquivalenceChecker::printInfo(double runtime, size_t memPeak) const
 {
     std::cout << '\n';
     std::cout << "Runtime: " << runtime << " seconds\n";
-    std::cout << "Peak memory usage: " << memPeak << " bytes\n"; 
+    std::cout << "Peak memory usage: " << memPeak << " bytes\n";
 }
