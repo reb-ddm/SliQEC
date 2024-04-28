@@ -95,6 +95,7 @@ void partialEquivalencCheckingBenchmarks(const int minN, const int maxN,
         totalTime += runtime;
       } else {
         log << "TIMEOUT; ";
+        timeouts++;
       }
       log << "k: " << k << ", d: " << d << ", m: " << m << ", time: " << runtime
           << "\n";
